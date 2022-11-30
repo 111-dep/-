@@ -49,9 +49,12 @@ class ParseGtf:
         fa_dict = {}
         for ls in ls_sim:
             if ls[0] == "exon" or ls[0] == "CDS":
-                fa_dict["gene_id:" + ls[4] + " transcript_id:" + ls[5] + "_" + ls[3] + ls[0]] = fa_dict.get(
-                    "gene_id:" + ls[4] + " transcript_id:"
-                    + ls[5] + "_" + ls[3] + ls[0], "") + seq[int(ls[1]):int(ls[2]) + 1]
+                fa_dict[
+                    "gene_id:" + re.sub(r"\"", "", ls[4]) + " transcript_id:" + re.sub(r"\"", "", ls[5]) + " " + ls[3] +
+                    ls[0]] = fa_dict.get(
+                    "gene_id:" + re.sub(r"\"", "", ls[4]) + " transcript_id:" + re.sub(r"\"", "", ls[5]) + " " + ls[3] +
+                    ls[0], "") + seq[int(ls[1]):int(
+                    ls[2]) + 1]
 
         for j in fa_dict.keys():
             if "-" in j:
@@ -60,8 +63,37 @@ class ParseGtf:
 
     @staticmethod
     def parse_gtf_json(fa_dict, mk_file):
+
         with open(mk_file + ".json", "w") as mk:
-            mk.write(json.dumps(fa_dict))
+            dict_gene = {}
+            dict_trans = {}
+            dict_type = {}
+            ls_trans = []
+            dict_gene["gene_id"] = ""
+            for item in fa_dict:
+                ls_temp = re.split(r":| ", item)
+                type = re.sub(r"/+|-", "", ls_temp[4])
+                if dict_gene["gene_id"] == ls_temp[1] and dict_trans["transcript_id"] == ls_temp[3]:
+                    dict_type[type] = fa_dict[item]
+                else:
+                    dict_type = {}
+                    dict_type[type] = fa_dict[item]
+                if dict_gene["gene_id"] == ls_temp[1] and dict_gene["gene_id"] != "":
+                    dict_trans["transcript_id"] = ls_temp[3]
+                    dict_trans["type"] = dict_type
+                    ls_trans.append(dict_trans)
+                else:
+                    # print(dict_gene)
+                    ls_trans = []
+                    dict_trans = {}
+                    dict_type = {}
+                    dict_type[type] = fa_dict[item]
+                    dict_trans["transcript_id"] = ls_temp[3]
+                    dict_trans["type"] = dict_type
+                    ls_trans.append(dict_trans)
+                    dict_gene["gene_id"] = ls_temp[1]
+                    dict_gene["transcript"] = ls_trans
+                mk.write(json.dumps(dict_gene)+"\n")
 
     @staticmethod
     def parse_gtf_fasta(fa_dict, mk_file):
@@ -103,7 +135,8 @@ def main(argv):
 
 if __name__ == '__main__':
     data = main(sys.argv[1:])
-    # data = ["../resource/Homo_sapiens.GRCh38.dna.chromosome.MT.fa ", "../resource/Homo_sapiens.GRCh38.99.MT.gtf","../test", "json","",""]
+     # data = ["../resource/Homo_sapiens.GRCh38.dna.chromosome.MT.fa ", "../resource/Homo_sapiens.GRCh38.99.MT.gtf",
+     #        "../test", "json", "", ""]
     seq_fa = data[0]
     gtf = data[1]
     output = data[2]
@@ -114,9 +147,9 @@ if __name__ == '__main__':
     fa_dict = ParseGtf.cut_seq(seq_line, gtf_sim)
 
     for i in range(3, len(data)):
-        if data[i] != "":
+        if data[i] in ("j", "json"):
             ParseGtf.parse_gtf_json(fa_dict, output)
-        elif data[i] != "":
+        elif data[i] in ("t", "tsv"):
             ParseGtf.parse_gtf_tsv(fa_dict, output)
-        elif data[i] != "":
+        elif data[i] in ("f", "fasta"):
             ParseGtf.parse_gtf_fasta(fa_dict, output)
